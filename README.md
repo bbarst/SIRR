@@ -1,10 +1,11 @@
 # IDS project
 
-## solver: 
+## file of solver: 
 IDS_solver.m 
+
 IDS2.m
 
-## embedding:
+## file of embedding:
 
-## experiment:
+## file of experiment:
 experiment.m
