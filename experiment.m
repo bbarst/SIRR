@@ -84,7 +84,7 @@ for idx1 = 1:length(conds)
         %xqr = R\(Q'*b);
         %xqr = (transpose(A)*A+lambda*eye(n))\(transpose(A)*b);
         xqr = A\b;
-        qr_result{idx1,idx2}=[norm(xqr-xstar)/norm(xstar);norm(A*(xqr-xstar))/norm(b);norm(A*(xqr-xstar))/norm(b)];
+        qr_result{idx1,idx2}=[norm(xqr-xstar)/norm(xstar);norm(A*(xqr-xstar))/norm(b);backward_error_ls(A,b,xqr)];
         
 
     end
