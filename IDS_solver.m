@@ -11,12 +11,15 @@ function [x,x_list,time_list] = IDS_solver(A,b,varargin)
 %   - verbose: if true, print at each iteration. (default false)
 %   - reproducible: if true, use slower, reproducible implementation of
 %     sparse sign embeddings (default false)
+%   - rescale: if true, rescale A by each column size.
+
 
     %count time
     tic
     Anum = isnumeric(A);
     if Anum
-
+        scale = vecnorm(A);
+        A = A ./ scale;
         m = size(A,1);
         n = size(A,2);
         Afun = @(x,op) mul(A,x,op);
@@ -42,7 +45,7 @@ function [x,x_list,time_list] = IDS_solver(A,b,varargin)
     if length(varargin) >= 3 && ~isempty(varargin{3})
         J = varargin{3};
     else
-        J = 2;
+        J = [3,10];
     end
     
     if length(varargin) >= 4 && ~isempty(varargin{4})
@@ -83,8 +86,7 @@ function [x,x_list,time_list] = IDS_solver(A,b,varargin)
 
 
     stats = [];
-    x_list = zeros(n,t);
-    time_list = zeros(1,t);
+
     time=toc;
     if Anum
         SA = full(S*A);
@@ -97,47 +99,56 @@ function [x,x_list,time_list] = IDS_solver(A,b,varargin)
     y = transpose(R)\Ab;
     x = R\y;
     time = toc;
-    x_list(:,1) = x;
-    time_list(1) = time;
+    x_list = x;
+    time_list = time;
+    J1 = J(2);
+    J = J(1);
     
-    for i = 1:t-1
-        for j = 1:J
-            r = b-Afun(x,false);
-            Ar = Afun(r,true);
-            uj = IDS2in(A,Ar,R,J,i+1,k,n,Afun);
-            x = x+uj;
-        end
-        x_list(:,i+1) = x;
-        time = toc-time;
-        time_list(i+1) = time;
-        
+    for j = 1:J1-1
+        r = b-Afun(x,false);
+        Ar = Afun(r,true);
+        uj = IDS2in(A,Ar,R,J,t,k,n,Afun);
+        x = x+uj;
+        x_list(:,end+1) = x;
+        time_list(end+1) = toc-time;
+        time = toc;
     end
+    
+    x_list=x_list./ scale.';
+    x = x./ scale.';
+    
+    
+        
     
 end
 
 
 function x = IDS2in(A,Ar,R,J,t,K,n,Afun)
-%solving Ax=r in y-space y=R*x using KryLov space
-X = zeros(n,K);
-xy = R\(R'\(Ar));
-r2 = Ar-(transpose(A)*(A*xy));
-xy1 = R\(transpose(R)\(r2));
-X = [xy,xy1];
-% X(:,1) = xy;
 
-% for k = 1:K-1
-%     r2 = Ar-Afun(Afun(xy,false),true);
-%     xy = R\(R'\r2);
-%     X(:,k+1) = xy;
-% end
+if t==1
+    %solving Ax=r in y-space y=R*x using KryLov space
+    X = zeros(n,K);
+    xy = R\(R'\(Ar));
+    % r2 = Ar-(transpose(A)*(A*xy));
+    % xy1 = R\(transpose(R)\(r2));
+    % X = [xy,xy1];
+    X(:,1) = xy;
 
-AX = A*X;
-[QAX,RAX] = qr(AX'*AX,0);
-a = RAX\(QAX'*(X'*Ar));
-x = X*a;
+    for k = 1:K-1
+        r2 = Ar-Afun(Afun(xy,false),true);
+        xy = R\(R'\r2);
+        X(:,k+1) = xy;
+    end
 
-if t>1
-    for i = 1:J
+    AX = A*X;
+    [QAX,RAX] = qr(AX'*AX,0);
+    a = RAX\(QAX'*(X'*Ar));
+    x = X*a;
+
+else 
+    r1 = Ar;
+    x = IDS2in(A,r1,R,J,t-1,K,n,Afun);
+    for i = 1:J-1
     r1 = Ar-Afun(Afun(x,false),true);
     u =  IDS2in(A,r1,R,J,t-1,K,n,Afun);
     x = x+u;
